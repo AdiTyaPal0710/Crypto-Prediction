@@ -1,82 +1,157 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.svm import SVR
 from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import joblib
 
 # Load the dataset
 df = pd.read_excel('crypto.xlsx', sheet_name='CryptoData')
 
 def train_model(data):
-    # Define the feature and target columns
+    """
+    Train multiple regression models on the provided dataset, select the best model based on MSE for each target variable,
+    and save the best model to disk. Returns a dictionary of the best models' filenames for each target variable.
+
+    Parameters:
+    - data: DataFrame containing the input features and target variables.
+
+    Returns:
+    - best_models: Dictionary with the target as the key and the best model's filename as the value.
+    """
+
+    # Define features (independent variables) and target variables (dependent variables)
     features = [
         'Days_Since_High_Last_7_Days',
         '%_Diff_From_High_Last_7_Days',
         'Days_Since_Low_Last_7_Days',
         '%_Diff_From_Low_Last_7_Days'
     ]
-    target = [
+    target_columns = [
         '%_Diff_From_High_Next_5_Days',
         '%_Diff_From_Low_Next_5_Days'
     ]
 
-    # Prepare the data (drop rows where any of the features or target are NaN)
+    # Select feature columns, dropping any rows with missing values
     X = data[features].dropna()
-    y = data[target].loc[X.index]  # Align y with X after dropping NaNs
 
-    # Ensure there is no mismatch in X and y after dropping NaNs
-    if X.shape[0] == 0 or y.shape[0] == 0:
+    # Check if there’s sufficient data after dropping NaNs
+    if X.shape[0] == 0:
         print("No data available for training after dropping NaNs.")
         return None
 
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Dictionary to store the best models' file paths for each target
+    best_models = {}
 
-    # Initialize and train RandomForestRegressor
-    model1 = RandomForestRegressor(n_estimators=100, random_state=42)
-    model1.fit(X_train, y_train)
-    predictions1 = model1.predict(X_test)
-    mse1 = mean_squared_error(y_test, predictions1)
-    print(f"RandomForest MSE: {mse1}")
+    # Loop through each target column to train models individually
+    for target in target_columns:
+        print(f"\nTraining models for target: {target}")
+        
+        # Align target variable (y) with X after removing NaNs
+        y = data[target].loc[X.index]
+        
+        # Split data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Initialize and train XGBRegressor
-    model2 = XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
-    model2.fit(X_train, y_train)
-    predictions2 = model2.predict(X_test)
-    mse2 = mean_squared_error(y_test, predictions2)
-    print(f"XGBoost MSE: {mse2}")
+        # Define different regression models to be evaluated
+        models = {
+            "Linear Regression": LinearRegression(),
+            "Ridge Regression": Ridge(alpha=1.0),
+            "Lasso Regression": Lasso(alpha=0.1),
+            "Decision Tree": DecisionTreeRegressor(max_depth=5, random_state=42),
+            "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
+            "Support Vector Regressor": SVR(kernel='rbf', C=1.0, epsilon=0.1),
+            "XGBoost": XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
+        }
 
-    # Save both models
-    joblib.dump(model1, "random_forest_regressor_crypto_model.pkl")
-    joblib.dump(model2, "xgboost_crypto_model.pkl")
+        # Dictionary to track each model's performance
+        model_performance = {}
 
-    # Return the model with the lower MSE
-    best_model = model1 if mse1 < mse2 else model2
-    joblib.dump(best_model, "best_crypto_model.pkl")  # Save best model for future predictions
-    print(f"Best model saved with MSE: {min(mse1, mse2)}")
-    return best_model
+        # Train each model and evaluate its performance on the test set
+        for name, model in models.items():
+            try:
+                # Train the model
+                model.fit(X_train, y_train)
+                
+                # Make predictions on the test set
+                predictions = model.predict(X_test)
 
-def predict_outcomes(input_data, model_choice="best"):
-    # Load the model based on the choice
-    if model_choice == "random_forest":
-        model = joblib.load("random_forest_regressor_crypto_model.pkl")
-    elif model_choice == "xgboost":
-        model = joblib.load("xgboost_crypto_model.pkl")
-    else:  # Default to the best model if no specific choice is made
-        model = joblib.load("best_crypto_model.pkl")
+                # Calculate performance metrics
+                mse = mean_squared_error(y_test, predictions)
+                mae = mean_absolute_error(y_test, predictions)
+                r2 = r2_score(y_test, predictions)
 
-    # Ensure the input data is in the correct format (as a 2D array)
-    input_data = np.array(input_data).reshape(1, -1)
-    return model.predict(input_data)
+                # Output model performance
+                print(f"{name} - MSE: {mse:.4f}, MAE: {mae:.4f}, R2: {r2:.4f}")
+                
+                # Store performance metrics and model object in dictionary
+                model_performance[name] = {
+                    "model": model,
+                    "mse": mse,
+                    "mae": mae,
+                    "r2": r2
+                }
+            except Exception as e:
+                print(f"Error training {name} for {target}: {e}")
 
-# Example usage
-if __name__ == "__main__":
-    # Train the model on the loaded data
-    trained_model = train_model(df)
+        # Select the best model based on minimum MSE
+        best_model_name = min(model_performance, key=lambda x: model_performance[x]["mse"])
+        best_model = model_performance[best_model_name]["model"]
+        best_mse = model_performance[best_model_name]["mse"]
+
+        # Save the best model to a file
+        model_filename = f"{best_model_name.lower().replace(' ', '_')}_{target.lower().replace('%', '').replace(' ', '_')}_model.pkl"
+        joblib.dump(best_model, model_filename)
+        print(f"Best model for {target} saved: {best_model_name} with MSE: {best_mse:.4f}")
+
+        # Store the filename of the best model for this target in the dictionary
+        best_models[target] = model_filename
+
+    return best_models
+
+def predict_outcomes(input_data, target, best_models):
+    """
+    Load the best model for a specified target variable from disk and use it to predict outcomes based on new input data.
+
+    Parameters:
+    - input_data: List of feature values for a new prediction.
+    - target: The target variable for which we want predictions.
+    - best_models: Dictionary containing the saved best model filenames for each target.
+
+    Returns:
+    - Prediction result or None if no model found.
+    """
     
-    # Predict outcomes for new input data (matching the feature order)
-    new_input = [3, -2.5, 4, 1.5]  # Example input; adjust values as needed
-    prediction = predict_outcomes(new_input)
-    print(f"Predicted outcomes: {prediction}")
+    # Retrieve the best model's path for the specified target
+    model_path = best_models.get(target)
+    
+    if model_path:
+        # Load the model from the saved file
+        model = joblib.load(model_path)
+        
+        # Reshape input data to match model input requirements
+        input_data = np.array(input_data).reshape(1, -1)
+        
+        # Return the prediction result
+        return model.predict(input_data)
+    else:
+        print(f"No model found for target: {target}")
+        return None
+
+# Main program execution
+if __name__ == "__main__":
+    # Train models and retrieve dictionary of best models' filenames
+    trained_models = train_model(df)
+    
+    # Sample new input data for prediction (change values as per your needs)
+    new_input = [3, -2.5, 4, 1.5]
+    
+    # Loop through each target variable to make predictions using the best model
+    for target in ['%_Diff_From_High_Next_5_Days', '%_Diff_From_Low_Next_5_Days']:
+        prediction = predict_outcomes(new_input, target, trained_models)
+        if prediction is not None:
+            print(f"Predicted outcome for {target}: {prediction[0]}")
