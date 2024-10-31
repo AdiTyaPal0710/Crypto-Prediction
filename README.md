@@ -49,6 +49,11 @@ To get started with this project, follow these steps:
    git clone <repository-url>
    cd <repository-directory>
 
+2. **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt
+
+
 ## Features
 ### Data Retrieval
 - Fetches historical data for specified cryptocurrency pairs from the CoinGecko API.
