@@ -6,7 +6,6 @@ This project is a comprehensive data analysis and machine learning pipeline for 
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Requirements](#requirements)
 - [Features](#features)
 - [API Research](#api-research)
 - [Data Retrieval and Processing](#data-retrieval-and-processing)
