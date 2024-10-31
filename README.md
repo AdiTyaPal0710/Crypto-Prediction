@@ -77,7 +77,7 @@ The `fetch_crypto_data` function retrieves daily price data starting from a spec
 ### Models Used:
 - **`LinearRegression` :** Basic regression model to establish a baseline for predicting price movements.
 - **`Lasso and Ridge` :** Regularized linear models to reduce overfitting and manage feature importance.
-- **`Support Vector Regressor (SVR)`:**Effective for capturing complex relationships in non-linear data.
+- **`Support Vector Regressor` :** Effective for capturing complex relationships in non-linear data..
 - **`RandomForestRegressor`:** Used for general accuracy in structured data.
 - **`XGBRegressor`:** For optimized tree-based regression with custom learning rates.
 
