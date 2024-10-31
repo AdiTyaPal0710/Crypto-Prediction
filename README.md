@@ -26,12 +26,6 @@ This project retrieves historical trading data for frequently traded cryptocurre
 - `README.md`: Documentation for the project.
 - `requirements.txt`: Dependencies required for the project.
 
-## Getting Started
-Clone the repository:
-```bash
-git clone <repository-url>
-cd <repository-directory>
-
 ## Features
 ### Data Retrieval
 - Fetches historical data for specified cryptocurrency pairs from the CoinGecko API.
